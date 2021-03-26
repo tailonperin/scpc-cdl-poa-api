@@ -1,0 +1,54 @@
+{
+    "name": "tailonperin/scpc-cdl-poa-api",
+    "description": "Pacote para consumir API SCPC do CDL Porto Alegre - RS",
+    "keywords": [
+        "tailonperin",
+        "scpc-cdl-poa-api"
+    ],
+    "homepage": "https://github.com/tailonperin/scpc-cdl-poa-api",
+    "license": "MIT",
+    "type": "library",
+    "authors": [
+        {
+            "name": "Tailon Perin",
+            "email": "tailonedson@gmail.com",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^7.1",
+        "illuminate/support": "^6.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^4.0",
+        "phpunit/phpunit": "^8.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Tailonperin\\ScpcCdlPoaApi\\": "src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tailonperin\\ScpcCdlPoaApi\\Tests\\": "tests"
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/phpunit",
+        "test-coverage": "vendor/bin/phpunit --coverage-html coverage"
+
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Tailonperin\\ScpcCdlPoaApi\\ScpcCdlPoaApiServiceProvider"
+            ],
+            "aliases": {
+                "ScpcCdlPoaApi": "Tailonperin\\ScpcCdlPoaApi\\ScpcCdlPoaApiFacade"
+            }
+        }
+    }
+}
