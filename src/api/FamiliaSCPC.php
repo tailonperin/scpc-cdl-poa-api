@@ -4,7 +4,7 @@
 namespace Tailonperin\ScpcCdlPoaApi\api;
 
 
-class FamiliaSCPC extends Base
+abstract class FamiliaSCPC extends Base
 {
     protected $cpf;
     protected $tipoCredito;
@@ -58,14 +58,6 @@ class FamiliaSCPC extends Base
         return 'ConsultaSCPC';
     }
 
-    protected function hosts()
-    {
-        return [
-            'prod' => 'https://sis.spcrs.org.br/webservices/Familiascpc/consulta.asmx',
-            'dev' => 'https://homologacao.scpcrs.org.br/webservices/Familiascpc/consulta.asmx',
-        ];
-    }
-
     protected function requiredFields()
     {
         return [
@@ -80,7 +72,7 @@ class FamiliaSCPC extends Base
             'TipoConsulta' => $this->tipoConsulta,
             'ParcelaSegura' => $this->parcelaSegura,
             'ModuloDecisao' => $this->moduloDecisao,
-            'CodigoScore' => $this->codigoScore,
+            'CodigosScore' => $this->codigoScore,
             'Senha' => $this->senha,
         ];
     }

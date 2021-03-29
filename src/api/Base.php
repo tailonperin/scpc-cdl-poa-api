@@ -3,6 +3,8 @@ namespace Tailonperin\ScpcCdlPoaApi\api;
 
 abstract class Base
 {
+    protected $url;
+
     protected $codigoCDL;
     protected $codigoAssociado;
     protected $codigoFilial;
@@ -10,25 +12,17 @@ abstract class Base
 
     protected $requestData = [];
     protected $optionalFields = [];
+    
+    protected $responseBody;
 
-    public function __construct($codigoCDL, $codigoAssociado, $codigoFilial, $senha)
+    public function __construct($url, $codigoCDL, $codigoAssociado, $codigoFilial, $senha)
     {
+        $this->url = $url;
+
         $this->codigoCDL = $codigoCDL;
         $this->codigoAssociado = $codigoAssociado;
         $this->codigoFilial = $codigoFilial;
         $this->senha = $senha;
-    }
-
-    protected function environment()
-    {
-        $environment = env('CDL_POA_ENV', 'dev');
-
-        return $environment;
-    }
-
-    protected function url()
-    {
-        return $this->hosts()[$this->environment()];
     }
 
     public function addProperty($key, $value)
@@ -47,9 +41,8 @@ abstract class Base
 
     protected abstract function endpointName();
 
-    protected abstract function hosts();
-
     protected abstract function requiredFields();
+    protected abstract function getKey();
 
     protected function validations($fields)
     {
@@ -67,28 +60,31 @@ abstract class Base
 	xmlns:xsd="http://www.w3.org/2001/XMLSchema"
 	xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"/>');
 
-        $data = [
-            'soap:Body' => [
-                $this->endpointName().' xmlns="http://tempuri.org/"' => $this->requestData
-            ]
-        ];
+        $xmlToAdd = $xml->addChild('soap:Body', '');
+        $type = $this->endpointName();
+        $xmlToAdd = $xmlToAdd->addChild($type, '', 'http://tempuri.org/');
 
-        dd($data);
-        $this->arrayToXml($data, $xml);
+        $data = $this->requestData;
 
-        dd($xml->asXML());
+        $this->arrayToXml($data, $xmlToAdd);
+
+        return $xml;
     }
 
     public function enviar()
     {
-        $url = $this->url();
+        $url = $this->url;
+
+        if(is_null($this->url)) {
+            throw new \Exception("URL not defined.");
+        }
 
         $requiredFieldsData = $this->requiredFields();
 
         $this->validations($requiredFieldsData);
 
         $this->requestData = array_merge($requiredFieldsData, $this->requestData);
-        $this->requestData = array_merge($this->optionalFields, $this->requestData);
+        $this->requestData = array_merge($this->requestData, $this->optionalFields);
 
         $xml = $this->mountXML();
 
@@ -103,20 +99,77 @@ abstract class Base
         $header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
         $header = substr($return, 0, $header_size);
         $body = substr($return, $header_size);
+        $this->responseBody = $body;
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
         curl_close($ch);
 
         if($httpCode == 200) {
+            $arrayXml = $this->xmlstr_to_array($body);
 
-            $xml = simplexml_load_string($body);
-            $json = json_encode($xml);
-            $array = json_decode($json,TRUE);
-
-            return $array;
+            return [
+                'http_code' => $httpCode,
+                'response' => $arrayXml
+            ];
         }
 
-        return $return;
+        return [
+            'http_code' => $httpCode,
+            'response' => $body
+        ];
+    }
+
+    function xmlstr_to_array($xmlstr) {
+        $doc = new \DOMDocument();
+        $doc->loadXML($xmlstr);
+        $root = $doc->documentElement;
+        $output = $this->domnode_to_array($root);
+        $output['@root'] = $root->tagName;
+        return $output;
+    }
+
+    function domnode_to_array($node) {
+        $output = array();
+        switch ($node->nodeType) {
+            case XML_CDATA_SECTION_NODE:
+            case XML_TEXT_NODE:
+                $output = trim($node->textContent);
+                break;
+            case XML_ELEMENT_NODE:
+                for ($i=0, $m=$node->childNodes->length; $i<$m; $i++) {
+                    $child = $node->childNodes->item($i);
+                    $v = $this->domnode_to_array($child);
+                    if(isset($child->tagName)) {
+                        $t = $child->tagName;
+                        if(!isset($output[$t])) {
+                            $output[$t] = array();
+                        }
+                        $output[$t][] = $v;
+                    }
+                    elseif($v || $v === '0') {
+                        $output = (string) $v;
+                    }
+                }
+                if($node->attributes->length && !is_array($output)) { //Has attributes but isn't an array
+                    $output = array('@content'=>$output); //Change output into an array.
+                }
+                if(is_array($output)) {
+                    if($node->attributes->length) {
+                        $a = array();
+                        foreach($node->attributes as $attrName => $attrNode) {
+                            $a[$attrName] = (string) $attrNode->value;
+                        }
+                        $output['@attributes'] = $a;
+                    }
+                    foreach ($output as $t => $v) {
+                        if(is_array($v) && count($v)==1 && $t!='@attributes') {
+                            $output[$t] = $v[0];
+                        }
+                    }
+                }
+                break;
+        }
+        return $output;
     }
 
     function arrayToXml($array, &$xml){
